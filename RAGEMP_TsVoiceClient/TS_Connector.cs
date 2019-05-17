@@ -10,8 +10,11 @@ namespace RAGEMP_TsVoiceClient
     public class TS_Connector : Events.Script
     {
         #region Variables
-        private HtmlWindow tsBrowser;
-        private string tsname;
+        private static HtmlWindow tsBrowser;
+        private static string tsname;
+        private static List<string> playerNames = new List<string>();
+        private static bool keyStatus;
+        private static int lastcheck;
         #endregion
 
         #region Constructor
@@ -50,8 +53,6 @@ namespace RAGEMP_TsVoiceClient
             }
         }
 
-        private static bool keyStatus;
-        private static int lastcheck;
         private static void OnTick(List<Events.TickNametagData> nametags)
         {
             if (Input.IsDown((char)Keys.M) && !keyStatus)
@@ -67,8 +68,8 @@ namespace RAGEMP_TsVoiceClient
             var rotation = Math.PI / 180 * (player.GetRotation(0).Z * -1);
             var streamedPlayers = RAGE.Elements.Entities.Players.All;
             var playerNames = new List<string>();
-                
-            if (player.GetSharedData("CALLING_PLAYER_NAME") != null && player.GetSharedData("CALL_IS_STARTED") != null && player.GetSharedData("CALL_IS_STARTED").ToString() == "1")
+
+            if (player.GetSharedData("CALLING_PLAYER_NAME") != null && player.GetSharedData("CALL_IS_STARTED") != null && (bool)player.GetSharedData("CALL_IS_STARTED"))
             {
                 var callingPlayerName = player.GetSharedData("CALLING_PLAYER_NAME").ToString();
                 if (callingPlayerName != "")
@@ -124,8 +125,8 @@ namespace RAGEMP_TsVoiceClient
             else
                 tsBrowser.Url = $"http://localhost:15555/players/{tsname}/{string.Join(";", playerNames)}/";
 
-            lastcheck = RAGE.Game.Misc.GetGameTimer();
-            
+            playerNames.Clear();
+            lastcheck = RAGE.Game.Misc.GetGameTimer();         
         }
         #endregion
 
