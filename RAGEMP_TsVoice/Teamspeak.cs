@@ -157,21 +157,5 @@ namespace RAGEMP_TsVoice
                 await Task.Delay(50);
             }
         }
-
-        public static string ReplaceStr(string str)
-        {
-            str = str.Replace("\\\\", "\\");
-            str = str.Replace("\\/", "/");
-            str = str.Replace("\\s", " ");
-            str = str.Replace("\\p", "|");
-            str = str.Replace("\\a", "\a");
-            str = str.Replace("\\b", "\b");
-            str = str.Replace("\\f", "\f");
-            str = str.Replace("\\n", "\n");
-            str = str.Replace("\\r", "\r");
-            str = str.Replace("\\t", "\t");
-            str = str.Replace("\\v", "\v");
-            return str;
-        }
     }
 }
