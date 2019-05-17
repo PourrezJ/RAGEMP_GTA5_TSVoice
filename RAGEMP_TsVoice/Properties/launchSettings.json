@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "RAGEMP_TsVoice": {
+      "commandName": "Executable",
+      "executablePath": "C:\\server-files\\server.exe",
+      "workingDirectory": "C:\\server-files"
+    }
+  }
+}

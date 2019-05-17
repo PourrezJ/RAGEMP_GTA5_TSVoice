@@ -1,0 +1,12 @@
+
+<meta>
+  <info name="teamspeak_wrapper" type="script" />
+  <script src="RAGEMP_TsVoice.dll" />
+
+  <setting name="teamspeak_query_address" value="" default="127.0.0.1" />
+  <setting name="teamspeak_query_port" value="" default="10011" />
+  <setting name="teamspeak_port" value="" default="9987" />
+  <setting name="teamspeak_login" value="" default="serveradmin" />
+  <setting name="teamspeak_password" value="" default="teamspeakquerypassword" />
+  <setting name="teamspeak_channel" value="" default="Ingame" />
+</meta>
