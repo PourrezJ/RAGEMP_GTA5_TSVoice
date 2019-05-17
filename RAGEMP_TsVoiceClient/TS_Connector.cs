@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 using RAGE;
 using RAGE.Ui;
 
@@ -48,75 +50,82 @@ namespace RAGEMP_TsVoiceClient
             }
         }
 
-        DateTime oldDateTime = DateTime.Now.AddMilliseconds(500);
-        private void OnTick(List<Events.TickNametagData> nametags)
+        private static bool keyStatus;
+        private static int lastcheck;
+        private static void OnTick(List<Events.TickNametagData> nametags)
         {
-            if (DateTime.Now > oldDateTime)
+            if (Input.IsDown((char)Keys.M) && !keyStatus)
             {
-                
-                var player = RAGE.Elements.Player.LocalPlayer;
-                var rotation = Math.PI / 180 * (player.GetRotation(0).Z * -1);
-                var streamedPlayers = RAGE.Elements.Entities.Players.All;
-                var playerNames = new List<string>();
-                
-                if (player.GetSharedData("CALLING_PLAYER_NAME") != null && player.GetSharedData("CALL_IS_STARTED") != null && player.GetSharedData("CALL_IS_STARTED").ToString() == "1")
-                {
-                    var callingPlayerName = player.GetSharedData("CALLING_PLAYER_NAME").ToString();
-                    if (callingPlayerName != "")
-                        playerNames.Add(callingPlayerName + "~10~0~0~3");
-                }
-                
-                for (var i = 0; i < streamedPlayers.Count; i++)
-                {
-                    if (streamedPlayers[i] != null && !streamedPlayers[i].Exists)
-                        continue;
-
-                    if (streamedPlayers[i].GetSharedData("TsName") == null)
-                        continue;
-
-                    var streamedPlayerPos = streamedPlayers[i].Position;
-                    var distance = player.Position.DistanceTo2D(streamedPlayerPos);
-
-                    var voiceRange = "Normal";
-                    if (streamedPlayers[i].GetSharedData("VOICE_RANGE") != null)
-                        voiceRange = streamedPlayers[i].GetSharedData("VOICE_RANGE").ToString();
-
-                    float volumeModifier = 0;
-                    var range = 12;
-
-                    if (voiceRange == "Weit")
-                        range = 50;
-
-                    else if (voiceRange == "Kurz")
-                        range = 5;
-
-                    if (distance > 5)
-                        volumeModifier = (distance * -8 / 10);
-
-                    if (volumeModifier > 0)
-                        volumeModifier = 0;
-
-                    if (distance < range)
-                    {
-                        var subPos = streamedPlayerPos.Subtract(player.Position);
-
-                        var x = subPos.X * Math.Cos(rotation) - subPos.Y * Math.Sin(rotation);
-                        var y = subPos.X * Math.Sin(rotation) + subPos.Y * Math.Cos(rotation);
-
-                        x = x * 10 / range;
-                        y = y * 10 / range;
-
-                        playerNames.Add(streamedPlayers[i].GetSharedData("TsName").ToString() + "~" + (Math.Round(x * 1000) / 1000) + "~" + (Math.Round(y * 1000) / 1000) + "~0~" + (Math.Round(volumeModifier * 1000) / 1000));
-                    }
-                }
-
-                if (tsBrowser == null)
-                    tsBrowser = new HtmlWindow($"http://localhost:15555/players/{tsname}/{string.Join(";", playerNames)}/");
-                else
-                    tsBrowser.Url = $"http://localhost:15555/players/{tsname}/{string.Join(";", playerNames)}/";
-
-                oldDateTime = DateTime.Now.AddMilliseconds(500);
+                keyStatus = true;
+                Events.CallRemote("ChangeVoiceRange");
+                Task.Delay(250).ContinueWith(_ => keyStatus = false);
             }
+
+            if (RAGE.Game.Misc.GetGameTimer() - lastcheck < 500) return;
+            
+            var player = RAGE.Elements.Player.LocalPlayer;
+            var rotation = Math.PI / 180 * (player.GetRotation(0).Z * -1);
+            var streamedPlayers = RAGE.Elements.Entities.Players.All;
+            var playerNames = new List<string>();
+                
+            if (player.GetSharedData("CALLING_PLAYER_NAME") != null && player.GetSharedData("CALL_IS_STARTED") != null && player.GetSharedData("CALL_IS_STARTED").ToString() == "1")
+            {
+                var callingPlayerName = player.GetSharedData("CALLING_PLAYER_NAME").ToString();
+                if (callingPlayerName != "")
+                    playerNames.Add(callingPlayerName + "~10~0~0~3");
+            }
+                
+            for (var i = 0; i < streamedPlayers.Count; i++)
+            {
+                if (streamedPlayers[i] != null && !streamedPlayers[i].Exists)
+                    continue;
+
+                if (streamedPlayers[i].GetSharedData("TsName") == null)
+                    continue;
+
+                var streamedPlayerPos = streamedPlayers[i].Position;
+                var distance = player.Position.DistanceTo2D(streamedPlayerPos);
+
+                var voiceRange = "Normal";
+                if (streamedPlayers[i].GetSharedData("VOICE_RANGE") != null)
+                    voiceRange = streamedPlayers[i].GetSharedData("VOICE_RANGE").ToString();
+
+                float volumeModifier = 0;
+                var range = 12;
+
+                if (voiceRange == "Weit")
+                    range = 50;
+
+                else if (voiceRange == "Kurz")
+                    range = 5;
+
+                if (distance > 5)
+                    volumeModifier = (distance * -8 / 10);
+
+                if (volumeModifier > 0)
+                    volumeModifier = 0;
+
+                if (distance < range)
+                {
+                    var subPos = streamedPlayerPos.Subtract(player.Position);
+
+                    var x = subPos.X * Math.Cos(rotation) - subPos.Y * Math.Sin(rotation);
+                    var y = subPos.X * Math.Sin(rotation) + subPos.Y * Math.Cos(rotation);
+
+                    x = x * 10 / range;
+                    y = y * 10 / range;
+
+                    playerNames.Add(streamedPlayers[i].GetSharedData("TsName").ToString() + "~" + (Math.Round(x * 1000) / 1000) + "~" + (Math.Round(y * 1000) / 1000) + "~0~" + (Math.Round(volumeModifier * 1000) / 1000));
+                }
+            }
+
+            if (tsBrowser == null)
+                tsBrowser = new HtmlWindow($"http://localhost:15555/players/{tsname}/{string.Join(";", playerNames)}/");
+            else
+                tsBrowser.Url = $"http://localhost:15555/players/{tsname}/{string.Join(";", playerNames)}/";
+
+            lastcheck = RAGE.Game.Misc.GetGameTimer();
+            
         }
         #endregion
 
