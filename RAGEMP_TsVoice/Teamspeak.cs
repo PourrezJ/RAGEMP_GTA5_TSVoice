@@ -5,11 +5,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using TeamSpeak3QueryApi.Net;
 using TeamSpeak3QueryApi.Net.Specialized;
+using TeamSpeak3QueryApi.Net.Specialized.Responses;
 
 namespace RAGEMP_TsVoice
 {
     public class Teamspeak : Script
     {
+        private TeamSpeakClient tsQuery;
+
         private static string TeamspeakQueryAddress { get; set; }
         private static short TeamspeakQueryPort { get; set; }
         private static string TeamspeakPort { get; set; }
@@ -25,14 +28,7 @@ namespace RAGEMP_TsVoice
         [ServerEvent(Event.PlayerConnected)]
         public void OnPlayerConnected(Client client)
         {
-            Teamspeak.Connect(client, client.SocialClubName);
-        }
-
-
-        [Command("tsstop")]
-        public static void tsstop(Client client)
-        {
-            client.TriggerEvent("DisconnectTeamspeak");
+            Teamspeak.Connect(client, client.SocialClubName); 
         }
 
         [ServerEvent(Event.ResourceStart)]
@@ -49,7 +45,7 @@ namespace RAGEMP_TsVoice
                     TeamspeakPassword = NAPI.Resource.GetSetting<string>(this, "teamspeak_password");
                     TeamspeakChannel = NAPI.Resource.GetSetting<string>(this, "teamspeak_channel");
 
-                    await CheckSpeakingClients();
+                    await InitTSQuery();
                 }
                 catch (Exception ex)
                 {
@@ -98,64 +94,75 @@ namespace RAGEMP_TsVoice
             client.TriggerEvent("ConnectTeamspeak", characterName);
         }
 
-        private async Task CheckSpeakingClients()
+        private async Task InitTSQuery()
         {
-            var rc = new TeamSpeakClient(TeamspeakQueryAddress, TeamspeakQueryPort); // Create rich client instance
+            tsQuery = new TeamSpeakClient(TeamspeakQueryAddress, TeamspeakQueryPort); // Create rich client instance
 
             try
             {              
-                await rc.Connect(); // connect to the server
-                await rc.Login(TeamspeakLogin, TeamspeakPassword); // login to do some stuff that requires permission
-                await rc.UseServer(1); // Use the server with id '1'
-                var me = await rc.WhoAmI(); // Get information about yourself!
+                await tsQuery.Connect(); // connect to the server
+                await tsQuery.Login(TeamspeakLogin, TeamspeakPassword); // login to do some stuff that requires permission
+                await tsQuery.UseServer(1); // Use the server with id '1'
+                var me = await tsQuery.WhoAmI(); // Get information about yourself!
+
+                var channel = (await tsQuery.FindChannel(TeamspeakChannel)).FirstOrDefault();
+
+                Utils.Delay(100, false, async () =>
+                    await UpdateTeamspeak(channel)
+                );
             }
             catch(QueryException ex)
             {
                 Console.WriteLine(ex.ToString());
             }
+        }
 
-            var channel = (await rc.FindChannel(TeamspeakChannel)).FirstOrDefault();
-
-            while (rc.Client.IsConnected)
+        private async Task UpdateTeamspeak(FoundChannel channel)
+        {
+            for (int i = 0; i < NAPI.Pools.GetAllPlayers().Count; i++)
             {
-                var clients = await rc.GetClients(GetClientOptions.Voice);
+                if (NAPI.Pools.GetAllPlayers()[i] != null && NAPI.Pools.GetAllPlayers()[i].Exists)
+                {
+                    await RefreshSpeaker(channel, NAPI.Pools.GetAllPlayers()[i], NAPI.Pools.GetAllPlayers());
+                }
+            }
+        }
+
+        public async Task RefreshSpeaker(FoundChannel channel, Client player, List<Client> players)
+        {
+            if (!tsQuery.Client.IsConnected)
+                return;
+
+            try
+            {
+                var clients = await tsQuery.GetClients(GetClientOptions.Voice);
                 var clientschannel = clients.ToList().FindAll(c => c.ChannelId == channel.Id);
 
-                var players = NAPI.Pools.GetAllPlayers().FindAll(p=>p.Exists && p.HasSharedData("TsName"));
+                var name = player.GetSharedData("TsName");
+                var tsplayer = clientschannel.Find(p => p.NickName == name);
 
-                for(int i = 0; i < players.Count; i++)
+                if (tsplayer != null)
                 {
-                    if (players[i] == null)
-                        continue;
-
-                    var name = players[i].GetSharedData("TsName");
-                    var tsplayer = clientschannel.Find(p => p.NickName == name);
-                    var player = players[i];
-
-                    if (!player.Exists)
-                        continue;
-
-                    if (tsplayer != null)
+                    if (tsplayer.Talk && !player.HasData("IS_SPEAKING"))
                     {
-                        if (tsplayer.Talk && !player.HasData("IS_SPEAKING"))
-                        {
-                            players.FindAll(p => p.Exists && p.Position.DistanceTo2D(player.Position) < 5f)
-                                .ForEach((client) => client.TriggerEvent("Teamspeak_LipSync", player.Handle.Value, true));
+                        players.FindAll(p => p.Exists && p.Position.DistanceTo2D(player.Position) < 5f)
+                            .ForEach((client) => client.TriggerEvent("Teamspeak_LipSync", player.Handle.Value, true));
 
-                            player.SetData("IS_SPEAKING", true);
-                        }
-                        else if (!tsplayer.Talk && player.HasData("IS_SPEAKING"))
-                        {
-                            players.FindAll(p => p.Exists && p.Position.DistanceTo2D(player.Position) < 5f)
-                                .ForEach((client) => client.TriggerEvent("Teamspeak_LipSync", player.Handle.Value, false));
-
-                            player.ResetData("IS_SPEAKING");
-                        }
+                        player.SetData("IS_SPEAKING", true);
                     }
-                    await Task.Delay(10);
+                    else if (!tsplayer.Talk && player.HasData("IS_SPEAKING"))
+                    {
+                        players.FindAll(p => p.Exists && p.Position.DistanceTo2D(player.Position) < 5f)
+                            .ForEach((client) => client.TriggerEvent("Teamspeak_LipSync", player.Handle.Value, false));
+
+                        player.ResetData("IS_SPEAKING");
+                    }
                 }
-                await Task.Delay(50);
             }
+            catch(Exception ex)
+            {
+                Console.WriteLine("TS RefreshSpeaker Error: " + ex.ToString());
+            }  
         }
     }
 }
