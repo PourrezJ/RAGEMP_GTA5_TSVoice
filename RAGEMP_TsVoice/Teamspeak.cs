@@ -24,11 +24,29 @@ namespace RAGEMP_TsVoice
         {
             Console.WriteLine("Teamspeak Wrapper Initialization...");
         }
+        
+        //Here we start generation of a random name
+        public static String GetRandomString()
+        {
+            var allowedChars = "ABCDEFGHJKLMNOPQRSTUVWXYZ0123456789";
+            var length = 16;
 
+            var chars = new char[length];
+            var rd = new Random();
+
+            for (var i = 0; i < length; i++)
+            {
+                chars[i] = allowedChars[rd.Next(0, allowedChars.Length)];
+            }
+
+            return new String(chars);
+        }
+        
         [ServerEvent(Event.PlayerConnected)]
         public void OnPlayerConnected(Client client)
         {
-            Teamspeak.Connect(client, client.SocialClubName); 
+            //Here we set the username that we generated on the player connection. We should protect Social Club names.
+            Teamspeak.Connect(client, GetRandomString()); 
         }
 
         [ServerEvent(Event.ResourceStart)]
